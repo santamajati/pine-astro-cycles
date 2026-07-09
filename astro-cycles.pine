@@ -1,0 +1,559 @@
+//@version=5
+indicator(title="Astro Cycles - Crypto", overlay=true, max_boxes_count=500, max_labels_count=500, max_lines_count=500)
+
+
+// ==== HELPER FUNCTIONS ====
+
+calc_future(string[] array_date, int bar_duration) =>
+    int result_offset = na
+    bool is_active = false
+    
+    if array.size(array_date) > 0
+        for i = 0 to array.size(array_date) - 1
+            target_str = array.get(array_date, i)
+            
+            int thn = int(str.tonumber(str.substring(target_str, 0, 4)))
+            int bln = int(str.tonumber(str.substring(target_str, 5, 7)))
+            int tgl = int(str.tonumber(str.substring(target_str, 8, 10)))
+            int target_time = timestamp(thn, bln, tgl, 0, 0, 0)
+            
+            if target_time > time_close
+                result_offset := math.round((target_time - time) / bar_duration)
+                is_active := true
+                break
+                
+    [result_offset, is_active]
+
+prev_retrograde(string[] start_array, string[] end_array) =>
+    bool in_range = false
+    if array.size(start_array) > 0
+        for i = 0 to array.size(start_array) - 1
+            str_s = array.get(start_array, i)
+            int s_thn = int(str.tonumber(str.substring(str_s, 0, 4)))
+            int s_bln = int(str.tonumber(str.substring(str_s, 5, 7)))
+            int s_tgl = int(str.tonumber(str.substring(str_s, 8, 10)))
+            int start_time = timestamp(s_thn, s_bln, s_tgl, 0, 0, 0)
+            
+            str_e = array.get(end_array, i)
+            int e_thn = int(str.tonumber(str.substring(str_e, 0, 4)))
+            int e_bln = int(str.tonumber(str.substring(str_e, 5, 7)))
+            int e_tgl = int(str.tonumber(str.substring(str_e, 8, 10)))
+            int end_time = timestamp(e_thn, e_bln, e_tgl, 23, 59, 59)
+            
+            if time >= start_time and time <= end_time
+                in_range := true
+                break
+    in_range
+
+is_in_station_zone(string[] start_array, string[] end_array, int buffer_days) =>
+    bool in_station = false
+    if array.size(start_array) > 0
+        for i = 0 to array.size(start_array) - 1
+            str_s = array.get(start_array, i)
+            int s_thn = int(str.tonumber(str.substring(str_s, 0, 4)))
+            int s_bln = int(str.tonumber(str.substring(str_s, 5, 7)))
+            int s_tgl = int(str.tonumber(str.substring(str_s, 8, 10)))
+            int start_time = timestamp(s_thn, s_bln, s_tgl, 0, 0, 0)
+            
+            str_e = array.get(end_array, i)
+            int e_thn = int(str.tonumber(str.substring(str_e, 0, 4)))
+            int e_bln = int(str.tonumber(str.substring(str_e, 5, 7)))
+            int e_tgl = int(str.tonumber(str.substring(str_e, 8, 10)))
+            int end_time = timestamp(e_thn, e_bln, e_tgl, 23, 59, 59)
+            
+            int station_start = start_time - (buffer_days * 86400000)
+            int station_end = end_time + (buffer_days * 86400000)
+            
+            if time >= station_start and time <= station_end
+                in_station := true
+                break
+    in_station
+
+is_in_window(string[] date_array, int window) =>
+    bool in_window = false
+    int array_size = array.size(date_array)
+    
+    if array_size > 0
+        for i = 0 to array_size - 1
+            string str_date = array.get(date_array, i)
+            int y = int(str.tonumber(str.substring(str_date, 0, 4)))
+            int m = int(str.tonumber(str.substring(str_date, 5, 7)))
+            int d = int(str.tonumber(str.substring(str_date, 8, 10)))
+            int target_time = timestamp(y, m, d, 0, 0, 0)
+            
+            if math.abs(time - target_time) <= window * 86400000
+                in_window := true
+                break
+    
+    in_window
+
+next_retrograde_box(string[] start_array, string[] end_array, int bar_duration, string planet, color warna_planet, int level) =>
+    if array.size(start_array) > 0
+        for i = 0 to array.size(start_array) - 1
+            str_s = array.get(start_array, i)
+            int s_thn = int(str.tonumber(str.substring(str_s, 0, 4)))
+            int s_bln = int(str.tonumber(str.substring(str_s, 5, 7)))
+            int s_tgl = int(str.tonumber(str.substring(str_s, 8, 10)))
+            int start_time = timestamp(s_thn, s_bln, s_tgl, 0, 0, 0)
+            
+            str_e = array.get(end_array, i)
+            int e_thn = int(str.tonumber(str.substring(str_e, 0, 4)))
+            int e_bln = int(str.tonumber(str.substring(str_e, 5, 7)))
+            int e_tgl = int(str.tonumber(str.substring(str_e, 8, 10)))
+            int end_time = timestamp(e_thn, e_bln, e_tgl, 23, 59, 59)
+            
+            if start_time > time_close
+                int offset_start = math.round((start_time - time) / bar_duration)
+                int offset_end   = math.round((end_time - time) / bar_duration)
+                
+                float batas_atas  = ta.highest(high, 500) * 1.3 - (level * ta.highest(high, 500) * 0.05)
+                float batas_bawah = ta.lowest(low, 500) * 0.7 - (level * ta.lowest(low, 500) * 0.05)
+                
+                box.new(left=bar_index + offset_start, top=batas_atas,
+                         right=bar_index + offset_end, bottom=batas_bawah,
+                         bgcolor=color.new(warna_planet, 92), border_color=warna_planet,
+                         border_style=line.style_dashed, extend=extend.none)
+                        
+                label.new(x=bar_index + offset_start, y=batas_atas, text=planet, 
+                         yloc=yloc.price, color=color.new(color.black, 70), 
+                         textcolor=warna_planet, style=label.style_label_down, size=size.small)
+                break
+
+// ==== HELPER FUNCTIONS END ====
+
+
+
+// ==== LUNAR DATA ====
+
+var string[] new_moon_dates = array.from(
+     "2020-01-24", "2020-02-23", "2020-03-24", "2020-04-23", "2020-05-22", "2020-06-21", "2020-07-20", "2020-08-19", "2020-09-17", "2020-10-16", "2020-11-15", "2020-12-14",
+     "2021-01-13", "2021-02-11", "2021-03-13", "2021-04-12", "2021-05-11", "2021-06-10", "2021-07-10", "2021-08-08", "2021-09-07", "2021-10-06", "2021-11-04", "2021-12-04",
+     "2022-01-02", "2022-02-01", "2022-03-02", "2022-04-01", "2022-04-30", "2022-05-30", "2022-06-29", "2022-07-28", "2022-08-27", "2022-09-25", "2022-10-25", "2022-11-23", "2022-12-23",
+     "2023-01-21", "2023-02-20", "2023-03-21", "2023-04-20", "2023-05-19", "2023-06-18", "2023-07-17", "2023-08-16", "2023-09-15", "2023-10-14", "2023-11-13", "2023-12-12",
+     "2024-01-11", "2024-02-09", "2024-03-10", "2024-04-08", "2024-05-08", "2024-06-06", "2024-07-05", "2024-08-04", "2024-09-03", "2024-10-02", "2024-11-01", "2024-12-01", "2024-12-30",
+     "2025-01-29", "2025-02-28", "2025-03-29", "2025-04-27", "2025-05-27", "2025-06-25", "2025-07-24", "2025-08-23", "2025-09-21", "2025-10-21", "2025-11-20", "2025-12-20",
+     "2026-01-18", "2026-02-17", "2026-03-19", "2026-04-17", "2026-05-16", "2026-06-15", "2026-07-14", "2026-08-12", "2026-09-11", "2026-10-10", "2026-11-09", "2026-12-09"
+     )
+    
+var string[] full_moon_dates = array.from(
+     "2020-01-10", "2020-02-09", "2020-03-09", "2020-04-08", "2020-05-07", "2020-06-05", "2020-07-05", "2020-08-03", "2020-09-02", "2020-10-01", "2020-10-31", "2020-11-30", "2020-12-30",
+     "2021-01-28", "2021-02-27", "2021-03-28", "2021-04-27", "2021-05-26", "2021-06-24", "2021-07-24", "2021-08-22", "2021-09-20", "2021-10-20", "2021-11-19", "2021-12-19",
+     "2022-01-17", "2022-02-16", "2022-03-18", "2022-04-16", "2022-05-16", "2022-06-14", "2022-07-13", "2022-08-12", "2022-09-10", "2022-10-09", "2022-11-08", "2022-12-08",
+     "2023-01-06", "2023-02-05", "2023-03-07", "2023-04-06", "2023-05-05", "2023-06-04", "2023-07-03", "2023-08-01", "2023-08-31", "2023-09-29", "2023-10-28", "2023-11-27", "2023-12-27",
+     "2024-01-25", "2024-02-24", "2024-03-25", "2024-04-23", "2024-05-23", "2024-06-22", "2024-07-21", "2024-08-19", "2024-09-18", "2024-10-17", "2024-11-15", "2024-12-15",
+     "2025-01-13", "2025-02-12", "2025-03-14", "2025-04-13", "2025-05-12", "2025-06-11", "2025-07-10", "2025-08-09", "2025-09-07", "2025-10-07", "2025-11-05", "2025-12-04",
+     "2026-01-03", "2026-02-01", "2026-03-03", "2026-04-02", "2026-05-01", "2026-05-31", "2026-06-29", "2026-07-29", "2026-08-28", "2026-09-26", "2026-10-26", "2026-11-24", "2026-12-24"
+     )
+
+var string[] lunar_eclipse_dates = array.from(
+     "2020-01-10", "2020-06-05", "2020-07-05", "2020-11-30", "2021-05-26", "2021-11-19", "2022-05-16", "2022-11-08", "2023-05-05", "2023-10-28", "2024-03-25", "2024-09-18",
+     "2025-03-14", "2025-09-07", "2026-03-03", "2026-08-28", "2027-02-20", "2027-07-18", "2027-08-17", "2028-01-12", "2028-07-06", "2028-12-31", "2029-06-26", "2029-12-20"
+     )
+
+var string[] solar_eclipse_dates = array.from(
+     "2020-06-21", "2020-12-14", "2021-06-10", "2021-12-04", "2022-04-30", "2022-10-25", "2023-04-20", "2023-10-14", "2024-04-08", "2024-10-02",
+     "2025-03-29", "2025-09-21", "2026-02-17", "2026-08-12", "2027-02-06", "2027-08-02", "2028-01-26", "2028-07-22", "2029-01-14", "2029-06-12", "2029-07-11", "2029-12-05"
+     )
+
+// ==== LUNAR DATA END ====
+
+
+
+// ==== RETROGRADE DATA ====
+
+var string[] mercury_start = array.from("2020-02-17", "2020-06-18", "2020-10-14", "2021-01-30", "2021-05-29", "2021-09-27", "2022-01-14", "2022-05-10", "2022-09-10", "2022-12-29", "2023-04-21", "2023-08-23", "2023-12-13", "2024-04-01", "2024-08-05", "2024-11-26", "2025-03-15", "2025-07-18", "2025-11-09", "2026-02-26", "2026-06-29", "2026-10-24")
+var string[] mercury_end = array.from("2020-03-10", "2020-07-12", "2020-11-03", "2021-02-21", "2021-06-22", "2021-10-18", "2022-02-04", "2022-06-03", "2022-10-02", "2023-01-18", "2023-05-15", "2023-09-15", "2024-01-02", "2024-04-25", "2024-08-28", "2024-12-15", "2025-04-07", "2025-08-11", "2025-11-29", "2026-03-20", "2026-07-23", "2026-11-13")
+
+var string[] venus_start = array.from("2020-05-13", "2021-12-19", "2025-03-02", "2026-10-03")
+var string[] venus_end = array.from("2020-06-25", "2022-01-29", "2025-04-13", "2026-11-14")
+
+var string[] mars_start = array.from("2020-09-09", "2022-10-30", "2024-12-06")
+var string[] mars_end = array.from("2020-11-14", "2023-01-12", "2025-02-24")
+
+var string[] jupiter_start = array.from("2020-05-14", "2021-06-20", "2022-07-28", "2023-09-04", "2024-10-09", "2025-11-11", "2026-12-13")
+var string[] jupiter_end = array.from("2020-09-13", "2021-10-18", "2022-11-23", "2023-12-31", "2025-02-04", "2026-03-11", "2027-04-13")
+
+var string[] saturn_start = array.from("2020-05-11", "2021-05-23", "2022-06-04", "2023-06-17", "2024-06-29", "2025-07-13", "2026-07-26")
+var string[] saturn_end = array.from("2020-09-29", "2021-10-11", "2022-10-23", "2023-11-04", "2024-11-15", "2025-11-28", "2026-12-10")
+
+var string[] uranus_start = array.from("2019-08-12", "2020-08-15", "2021-08-20", "2022-08-24", "2023-08-29", "2024-09-01", "2025-09-06", "2026-10-10")
+var string[] uranus_end = array.from("2020-01-11", "2021-01-14", "2022-01-18", "2023-01-22", "2024-01-27", "2025-01-30", "2026-02-04", "2027-02-08")
+
+// ==== RETROGRADE DATA END ====
+
+
+
+// ==== INGRESS DATA (Jupiter & Uranus) ====
+
+var string[] jupiter_ingress = array.from(
+     "2020-12-19", "2021-05-13", "2022-05-10", "2023-05-16", "2024-05-25", "2025-06-09", "2026-06-30", "2027-07-26", "2028-08-24", "2029-09-24", "2030-10-22", "2031-11-15"
+     )
+
+var string[] uranus_ingress = array.from(
+     "2010-05-28", "2018-05-15", "2025-07-07", "2032-08-03"
+     )
+
+// ==== INGRESS DATA END ====
+
+
+
+// ==== ASPECTS DATA (Major planetary aspects) ====
+
+var string[] venus_mars_aspect = array.from(
+     "2020-01-27", "2020-06-03", "2020-09-04", "2020-09-29", "2020-11-09", "2021-01-09", "2021-02-19", "2021-04-06", "2021-07-13", "2022-02-16", "2022-03-06", "2022-08-03", "2022-09-16", "2022-10-19", "2022-12-01", "2023-01-09", "2023-02-05", "2023-03-11", "2024-02-22", "2024-06-29", "2024-08-23", "2024-10-08", "2024-12-12", "2025-01-25", "2025-04-06", "2025-05-22", "2025-07-23", "2025-09-16", "2026-01-08", "2026-05-19", "2026-07-29", "2026-10-10", "2026-11-10", "2026-12-12"
+     )
+
+var string[] venus_jupiter_aspect = array.from(
+     "2020-01-23", "2020-02-23", "2020-03-28", "2020-08-25", "2020-10-19", "2020-11-16", "2020-12-14", "2021-02-11", "2021-04-10", "2021-05-08", "2021-06-03", "2021-07-22", "2021-09-06", "2021-09-30", "2021-10-28", "2022-04-30", "2022-06-29", "2022-07-25", "2022-08-18", "2022-10-01", "2022-11-15", "2022-12-09", "2023-01-04", "2023-03-02", "2023-05-05", "2023-06-11", "2023-08-22", "2023-09-17", "2023-10-22", "2023-12-10", "2024-01-29", "2024-02-25", "2024-03-24", "2024-05-23", "2024-07-21", "2024-08-19", "2024-09-15", "2024-11-03", "2024-12-20", "2025-01-14", "2025-06-05", "2025-08-12", "2025-10-08", "2025-11-02", "2025-11-26", "2026-01-09", "2026-02-22", "2026-03-18", "2026-04-13", "2026-06-09", "2026-08-17", "2026-11-04", "2026-11-28"
+     )
+
+var string[] mars_jupiter_aspect = array.from(
+     "2020-03-20", "2020-06-20", "2020-08-04", "2020-10-19", "2021-01-23", "2021-04-17", "2021-07-29", "2021-10-19", "2021-12-08", "2022-02-04", "2022-05-29", "2022-09-01", "2023-05-23", "2023-08-01", "2023-10-28", "2024-01-12", "2024-02-27", "2024-04-19", "2024-08-14", "2025-06-22", "2025-09-05", "2025-10-28", "2026-01-10", "2026-03-22", "2026-05-05", "2026-08-28", "2026-11-16"
+     )
+
+var string[] mars_saturn_aspect = array.from(
+     "2020-03-31", "2020-06-28", "2020-08-24", "2020-09-29", "2021-01-13", "2021-03-22", "2021-07-01", "2021-09-25", "2021-11-10", "2021-12-30", "2022-04-05", "2022-06-27", "2022-08-07", "2022-09-28", "2022-11-28", "2023-03-30", "2023-07-20", "2023-10-13", "2023-11-25", "2024-01-10", "2024-04-10", "2024-07-05", "2024-08-16", "2024-09-30", "2025-02-09", "2025-04-05", "2025-08-09", "2025-10-29", "2025-12-09", "2026-01-20", "2026-04-19", "2026-07-19", "2026-09-01", "2026-10-16"
+     )
+
+var string[] mars_uranus_aspect = array.from(
+     "2020-02-21", "2020-04-07", "2020-05-25", "2021-01-20", "2021-05-12", "2021-07-04", "2021-08-22", "2021-11-17", "2022-02-08", "2022-03-22", "2022-05-04", "2022-08-01", "2023-04-29", "2023-06-26", "2023-08-16", "2023-11-11", "2024-01-29", "2024-03-09", "2024-04-19", "2024-07-15", "2024-10-25", "2025-01-23", "2025-04-04", "2025-06-15", "2025-08-08", "2025-11-04", "2026-01-20", "2026-02-27", "2026-04-08", "2026-07-04", "2026-10-07", "2026-12-04"
+     )
+
+var string[] jupiter_saturn_aspect = array.from(
+     "2020-12-21", "2023-06-19", "2024-08-19", "2024-12-24", "2025-06-15", "2026-08-31"
+     )
+
+var string[] jupiter_uranus_aspect = array.from(
+     "2021-01-17", "2022-02-18", "2024-04-21", "2026-07-21"
+     )
+
+// ==== ASPECTS DATA END ====
+
+
+
+// ==== CURRENT STATUS CHECK ====
+
+string current_bar_date = str.format("{0,date,yyyy-MM-dd}", time)
+
+// Moon Check
+is_new_moon_prev = array.includes(new_moon_dates, current_bar_date)
+is_full_moon_prev = array.includes(full_moon_dates, current_bar_date)
+
+// Eclipse Check
+is_lunar_eclipse_prev = array.includes(lunar_eclipse_dates, current_bar_date)
+is_solar_eclipse_prev = array.includes(solar_eclipse_dates, current_bar_date)
+
+// Retrograde Start Check
+is_mercury_rx_start = array.includes(mercury_start, current_bar_date)
+is_venus_rx_start = array.includes(venus_start, current_bar_date)
+is_mars_rx_start = array.includes(mars_start, current_bar_date)
+is_jupiter_rx_start = array.includes(jupiter_start, current_bar_date)
+is_saturn_rx_start = array.includes(saturn_start, current_bar_date)
+is_uranus_rx_start = array.includes(uranus_start, current_bar_date)
+
+// Retrograde Status (currently in retrograde)
+in_mercury_rx = prev_retrograde(mercury_start, mercury_end)
+in_venus_rx = prev_retrograde(venus_start, venus_end)
+in_mars_rx = prev_retrograde(mars_start, mars_end)
+in_jupiter_rx = prev_retrograde(jupiter_start, jupiter_end)
+in_saturn_rx = prev_retrograde(saturn_start, saturn_end)
+in_uranus_rx = prev_retrograde(uranus_start, uranus_end)
+
+// Station Zone (±7 days from retrograde start/end)
+in_mercury_station = is_in_station_zone(mercury_start, mercury_end, 7)
+in_venus_station = is_in_station_zone(venus_start, venus_end, 7)
+in_mars_station = is_in_station_zone(mars_start, mars_end, 7)
+in_jupiter_station = is_in_station_zone(jupiter_start, jupiter_end, 7)
+in_saturn_station = is_in_station_zone(saturn_start, saturn_end, 7)
+in_uranus_station = is_in_station_zone(uranus_start, uranus_end, 7)
+
+// Aspects Check
+is_venus_mars_aspect = array.includes(venus_mars_aspect, current_bar_date)
+is_venus_jupiter_aspect = array.includes(venus_jupiter_aspect, current_bar_date)
+is_mars_jupiter_aspect = array.includes(mars_jupiter_aspect, current_bar_date)
+is_mars_saturn_aspect = array.includes(mars_saturn_aspect, current_bar_date)
+is_mars_uranus_aspect = array.includes(mars_uranus_aspect, current_bar_date)
+is_jupiter_saturn_aspect = array.includes(jupiter_saturn_aspect, current_bar_date)
+is_jupiter_uranus_aspect = array.includes(jupiter_uranus_aspect, current_bar_date)
+
+// Ingress Check
+is_jupiter_ingress = array.includes(jupiter_ingress, current_bar_date)
+is_uranus_ingress = array.includes(uranus_ingress, current_bar_date)
+
+// Moon Window ±3 days
+bool is_new_moon_window = is_in_window(new_moon_dates, 3)
+bool is_full_moon_window = is_in_window(full_moon_dates, 3)
+
+// Eclipse Window ±7 days
+bool is_lunar_eclipse_window = is_in_window(lunar_eclipse_dates, 5)
+bool is_solar_eclipse_window = is_in_window(solar_eclipse_dates, 5)
+
+// Aspect Window ±7 days
+bool is_venus_mars_aspect_window = is_in_window(venus_mars_aspect, 7)
+bool is_venus_jupiter_aspect_window = is_in_window(venus_jupiter_aspect, 7)
+bool is_mars_jupiter_aspect_window = is_in_window(mars_jupiter_aspect, 7)
+bool is_mars_saturn_aspect_window = is_in_window(mars_saturn_aspect, 7)
+bool is_mars_uranus_aspect_window = is_in_window(mars_uranus_aspect, 7)
+bool is_jupiter_saturn_aspect_window = is_in_window(jupiter_saturn_aspect, 7)
+bool is_jupiter_uranus_aspect_window = is_in_window(jupiter_uranus_aspect, 7)
+
+// ==== CURRENT STATUS CHECK END ====
+
+
+// ==== FUTURE EVENTS (for next box display) ====
+
+var table status_table = na
+
+is_new_moon_next = false
+is_full_moon_next = false
+is_lunar_eclipse_next = false
+is_solar_eclipse_next = false
+
+// Tambahan: Inisialisasi Trigger Boolean untuk Future Aspect & Ingress
+is_jupiter_ingress_next = false
+is_uranus_ingress_next = false
+
+is_venus_mars_aspect_next = false
+is_venus_jupiter_aspect_next = false
+is_mars_jupiter_aspect_next = false
+is_mars_saturn_aspect_next = false
+is_mars_uranus_aspect_next = false
+is_jupiter_saturn_aspect_next = false
+is_jupiter_uranus_aspect_next = false
+
+var int offset_new_moon = na
+var int offset_full_moon = na
+var int offset_lunar_eclipse = na
+var int offset_solar_eclipse = na
+
+// Tambahan: Inisialisasi Persistent Variable Offset Proyeksi untuk Aspect & Ingress
+var int offset_jupiter_ingress = na
+var int offset_uranus_ingress = na
+
+var int offset_venus_mars_aspect = na
+var int offset_venus_jupiter_aspect = na
+var int offset_mars_jupiter_aspect = na
+var int offset_mars_saturn_aspect = na
+var int offset_mars_uranus_aspect = na
+var int offset_jupiter_saturn_aspect = na
+var int offset_jupiter_uranus_aspect = na
+
+if barstate.islast
+    int bar_duration = int(ta.change(time))
+    if timeframe.isminutes
+        bar_duration := timeframe.multiplier * 60 * 1000
+    else if timeframe.isdaily
+        bar_duration := 86400000
+    else if timeframe.isweekly
+        bar_duration := 604800000
+        
+    [offset_nm, trigger_nm] = calc_future(new_moon_dates, bar_duration)
+    offset_new_moon := offset_nm
+    is_new_moon_next := trigger_nm
+
+    [offset_fm, trigger_fm] = calc_future(full_moon_dates, bar_duration)
+    offset_full_moon := offset_fm
+    is_full_moon_next := trigger_fm
+
+    [offset_le, trigger_le] = calc_future(lunar_eclipse_dates, bar_duration)
+    offset_lunar_eclipse := offset_le
+    is_lunar_eclipse_next := trigger_le
+
+    [offset_se, trigger_se] = calc_future(solar_eclipse_dates, bar_duration)
+    offset_solar_eclipse := offset_se
+    is_solar_eclipse_next := trigger_se
+
+    // Tambahan: Kalkulasi Offset Masa Depan untuk Ingress
+    [offset_ji, trigger_ji] = calc_future(jupiter_ingress, bar_duration)
+    offset_jupiter_ingress := offset_ji
+    is_jupiter_ingress_next := trigger_ji
+
+    [offset_ui, trigger_ui] = calc_future(uranus_ingress, bar_duration)
+    offset_uranus_ingress := offset_ui
+    is_uranus_ingress_next := trigger_ui
+
+    // Tambahan: Kalkulasi Offset Masa Depan untuk Aspects
+    [offset_vm, trigger_vm] = calc_future(venus_mars_aspect, bar_duration)
+    offset_venus_mars_aspect := offset_vm
+    is_venus_mars_aspect_next := trigger_vm
+
+    [offset_vj, trigger_vj] = calc_future(venus_jupiter_aspect, bar_duration)
+    offset_venus_jupiter_aspect := offset_vj
+    is_venus_jupiter_aspect_next := trigger_vj
+
+    [offset_mj, trigger_mj] = calc_future(mars_jupiter_aspect, bar_duration)
+    offset_mars_jupiter_aspect := offset_mj
+    is_mars_jupiter_aspect_next := trigger_mj
+
+    [offset_ms, trigger_ms] = calc_future(mars_saturn_aspect, bar_duration)
+    offset_mars_saturn_aspect := offset_ms
+    is_mars_saturn_aspect_next := trigger_ms
+
+    [offset_mu, trigger_mu] = calc_future(mars_uranus_aspect, bar_duration)
+    offset_mars_uranus_aspect := offset_mu
+    is_mars_uranus_aspect_next := trigger_mu
+
+    [offset_js, trigger_js] = calc_future(jupiter_saturn_aspect, bar_duration)
+    offset_jupiter_saturn_aspect := offset_js
+    is_jupiter_saturn_aspect_next := trigger_js
+
+    [offset_ju, trigger_ju] = calc_future(jupiter_uranus_aspect, bar_duration)
+    offset_jupiter_uranus_aspect := offset_ju
+    is_jupiter_uranus_aspect_next := trigger_ju
+
+    // Draw retrograde boxes
+    next_retrograde_box(mercury_start, mercury_end, bar_duration, "MER RX", color.rgb(136, 136, 136), 0)
+    next_retrograde_box(venus_start, venus_end, bar_duration, "VEN RX", color.rgb(227, 218, 201), 1)
+    next_retrograde_box(mars_start, mars_end, bar_duration, "MAR RX", color.rgb(193, 89, 41), 2)
+    next_retrograde_box(jupiter_start, jupiter_end, bar_duration, "JUP RX", color.rgb(181, 140, 98), 3)
+    next_retrograde_box(saturn_start, saturn_end, bar_duration, "SAT RX", color.rgb(226, 193, 132), 4)
+    next_retrograde_box(uranus_start, uranus_end, bar_duration, "URA RX", color.rgb(175, 227, 224), 5)
+
+
+    info_text = "\n  CURRENT ASTRO STATUS  \n\n"
+    
+    if is_new_moon_window
+        info_text += "  New Moon Window (±3)  \n"
+    if is_full_moon_window
+        info_text += "  Full Moon Window (±3)  \n"
+    if is_lunar_eclipse_window
+        info_text += "  Lunar Eclipse Window (±5)  \n"
+    if is_solar_eclipse_window
+        info_text += "  Solar Eclipse Window (±5)  \n"
+        
+    if in_mercury_station
+        info_text += "  Mercury Station  \n"
+    if in_venus_station
+        info_text += "  Venus Station  \n"
+    if in_mars_station
+        info_text += "  Mars Station  \n"
+    if in_jupiter_station
+        info_text += "  Jupiter Station  \n"
+    if in_saturn_station
+        info_text += "  Saturn Station  \n"
+    if in_uranus_station
+        info_text += "  Uranus Station  \n"
+        
+    if in_mercury_rx
+        info_text += "  Mercury Retrograde  \n"
+    if in_venus_rx
+        info_text += "  Venus Retrograde  \n"
+    if in_mars_rx
+        info_text += "  Mars Retrograde  \n"
+        
+    if is_venus_mars_aspect
+        info_text += "  Venus-Mars Aspect  \n"
+    if is_venus_jupiter_aspect
+        info_text += "  Venus-Jupiter Aspect  \n"
+    if is_mars_uranus_aspect
+        info_text += "  Mars-Uranus Aspect  \n"
+    if is_mars_saturn_aspect
+        info_text += "  Mars-Saturn Aspect  \n"
+    if is_jupiter_saturn_aspect
+        info_text += "  Jupiter-Saturn Aspect  \n"
+    if is_jupiter_uranus_aspect
+        info_text += "  Jupiter-Uranus Aspect  \n"
+
+    if is_venus_mars_aspect_window
+        info_text += "  Venus-Mars Aspect Window (±7)  \n"
+    if is_venus_jupiter_aspect_window
+        info_text += "  Venus-Jupiter Aspect Window (±7)  \n"
+    if is_mars_uranus_aspect_window
+        info_text += "  Mars-Uranus Aspect Window (±7)  \n"
+    if is_mars_saturn_aspect_window
+        info_text += "  Mars-Saturn Aspect Window (±7)  \n"
+    if is_jupiter_saturn_aspect_window
+        info_text += "  Jupiter-Saturn Aspect Window (±7)  \n"
+    if is_jupiter_uranus_aspect_window
+        info_text += "  Jupiter-Uranus Aspect Window (±7)  \n"
+    
+    if na(status_table)
+        status_table := table.new(position=position.top_right,
+                                   rows=1, columns=1, 
+                                   bgcolor=color.new(color.black, 30),
+                                   border_color=color.gray,
+                                   border_width=2)
+        table.cell(status_table, 0, 0, info_text, 
+                  text_color=color.white, 
+                  text_size=size.small,
+                  bgcolor=color.new(color.black, 50),
+                  text_halign=text.align_left)
+    else
+        table.cell(status_table, 0, 0, info_text, 
+                  text_color=color.white, 
+                  text_size=size.small,
+                  bgcolor=color.new(color.black, 50),
+                  text_halign=text.align_left)
+                  
+// ==== FUTURE EVENTS END ====
+
+
+
+// ==== VISUAL DISPLAYS ====
+
+// MOON PHASES
+plotshape(is_new_moon_prev, title="NM-Exact", style=shape.labelup, location=location.bottom, color=color.new(color.gray, 80), text="NM", textcolor=color.white, size=size.small)
+plotshape(is_new_moon_next, title="NM-Next", style=shape.labelup, location=location.bottom, color=color.new(color.gray, 80), text="NM", textcolor=color.white, size=size.small, offset=offset_new_moon)
+
+plotshape(is_full_moon_prev, title="FM-Exact", style=shape.labelup, location=location.bottom, color=color.new(color.orange, 80), text="FM", textcolor=color.white, size=size.small)
+plotshape(is_full_moon_next, title="FM-Next", style=shape.labelup, location=location.bottom, color=color.new(color.orange, 80), text="FM", textcolor=color.white, size=size.small, offset=offset_full_moon)
+
+// ECLIPSES
+plotshape(is_lunar_eclipse_prev, title="LE-Exact", style=shape.labeldown, location=location.top, color=color.new(color.red, 80), text="LE", textcolor=color.white, size=size.small)
+plotshape(is_lunar_eclipse_next, title="LE-Next", style=shape.labeldown, location=location.top, color=color.new(color.red, 80), text="LE", textcolor=color.white, size=size.small, offset=offset_lunar_eclipse)
+
+plotshape(is_solar_eclipse_prev, title="SE-Exact", style=shape.labeldown, location=location.top, color=color.new(color.orange, 80), text="SE", textcolor=color.white, size=size.small)
+plotshape(is_solar_eclipse_next, title="SE-Next", style=shape.labeldown, location=location.top, color=color.new(color.orange, 80), text="SE", textcolor=color.white, size=size.small, offset=offset_solar_eclipse)
+
+// RETROGRADE START SIGNALS
+plotshape(is_mercury_rx_start, title="MER RX START", style=shape.labeldown, location=location.top, color=color.new(color.rgb(136, 136, 136), 80), text="MER RX", textcolor=color.white, size=size.small)
+plotshape(is_venus_rx_start, title="VEN RX START", style=shape.labeldown, location=location.top, color=color.new(color.rgb(227, 218, 201), 80), text="VEN RX", textcolor=color.white, size=size.small)
+plotshape(is_mars_rx_start, title="MAR RX START", style=shape.labeldown, location=location.top, color=color.new(color.rgb(193, 89, 41), 80), text="MAR RX", textcolor=color.white, size=size.small)
+plotshape(is_jupiter_rx_start, title="JUP RX START", style=shape.labeldown, location=location.top, color=color.new(color.rgb(181, 140, 98), 80), text="JUP RX", textcolor=color.white, size=size.small)
+plotshape(is_saturn_rx_start, title="SAT RX START", style=shape.labeldown, location=location.top, color=color.new(color.rgb(226, 193, 132), 80), text="SAT RX", textcolor=color.white, size=size.small)
+plotshape(is_uranus_rx_start, title="URA RX START", style=shape.labeldown, location=location.top, color=color.new(color.rgb(175, 227, 224), 80), text="URA RX", textcolor=color.white, size=size.small)
+
+// LIGHTER BACKGROUND FOR JUST RETROGRADE (no station)
+bgcolor((in_mercury_rx and not in_mercury_station) ? color.new(color.rgb(136, 136, 136), 90) : na, title="MER RX")
+bgcolor((in_venus_rx and not in_venus_station) ? color.new(color.rgb(227, 218, 201), 90) : na, title="VEN RX")
+bgcolor((in_mars_rx and not in_mars_station) ? color.new(color.rgb(193, 89, 41), 90) : na, title="MAR RX")
+bgcolor((in_jupiter_rx and not in_jupiter_station) ? color.new(color.rgb(181, 140, 98), 90) : na, title="JUP RX")
+bgcolor((in_saturn_rx and not in_saturn_station) ? color.new(color.rgb(226, 193, 132), 90) : na, title="SAT RX")
+bgcolor((in_uranus_rx and not in_uranus_station) ? color.new(color.rgb(175, 227, 224), 90) : na, title="URA RX")
+
+bgcolor(in_mercury_rx ? color.new(color.rgb(136, 136, 136), 90) : na, title="MER RX")
+bgcolor(in_venus_rx ? color.new(color.rgb(227, 218, 201), 90) : na, title="VEN RX")
+bgcolor(in_mars_rx ? color.new(color.rgb(193, 89, 41), 90) : na, title="MAR RX")
+bgcolor(in_jupiter_rx ? color.new(color.rgb(181, 140, 98), 90) : na, title="JUP RX")
+bgcolor(in_saturn_rx ? color.new(color.rgb(226, 193, 132), 90) : na, title="SAT RX")
+bgcolor(in_uranus_rx ? color.new(color.rgb(175, 227, 224), 90) : na, title="URA RX")
+
+// ASPECTS & INGRESS (EXACT / HISTORICAL DATA)
+plotshape(is_jupiter_ingress, title="JUPITER INGRESS", style=shape.labeldown, location=location.top, color=color.new(color.blue, 80), text="JUP IN", textcolor=color.white, size=size.small)
+plotshape(is_uranus_ingress, title="URANUS INGRESS", style=shape.labeldown, location=location.top, color=color.new(color.aqua, 80), text="URA IN", textcolor=color.white, size=size.small)
+
+plotshape(is_venus_mars_aspect, title="VEN-MAR ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.rgb(255, 105, 180), 80), text="VEN-MAR", textcolor=color.white, size=size.small)
+plotshape(is_venus_jupiter_aspect, title="VEN-JUP ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.rgb(255, 215, 0), 80), text="VEN-JUP", textcolor=color.white, size=size.small)
+plotshape(is_mars_jupiter_aspect, title="MAR-JUP ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.rgb(0, 255, 127), 80), text="MAR-JUP", textcolor=color.white, size=size.small)
+plotshape(is_mars_uranus_aspect, title="MAR-URANUS ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.rgb(255, 140, 0), 80), text="MAR-URA", textcolor=color.white, size=size.small) // Fixed Text Bug
+plotshape(is_mars_saturn_aspect, title="MAR-SAT ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.red, 80), text="MAR-SAT", textcolor=color.white, size=size.small)     // Fixed Text Bug
+plotshape(is_jupiter_saturn_aspect, title="JUP-SAT ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.purple, 80), text="JUP-SAT", textcolor=color.white, size=size.small)
+plotshape(is_jupiter_uranus_aspect, title="JUP-URA ASPECT", style=shape.labeldown, location=location.top, color=color.new(color.lime, 80), text="JUP-URA", textcolor=color.white, size=size.small)
+
+
+// ==== TAMBAHAN: PROYEKSI/LABEL MASA DEPAN (NEXT / PROJECTION DATA) ====
+
+// INGRESS NEXT
+plotshape(is_jupiter_ingress_next, title="JUPITER INGRESS-Next", style=shape.labeldown, location=location.top, color=color.new(color.blue, 80), text="JUP IN", textcolor=color.white, size=size.small, offset=offset_jupiter_ingress)
+plotshape(is_uranus_ingress_next, title="URANUS INGRESS-Next", style=shape.labeldown, location=location.top, color=color.new(color.aqua, 80), text="URA IN", textcolor=color.white, size=size.small, offset=offset_uranus_ingress)
+
+// ASPECTS NEXT
+plotshape(is_venus_mars_aspect_next, title="VEN-MAR-Next", style=shape.labeldown, location=location.top, color=color.new(color.rgb(255, 105, 180), 80), text="VEN-MAR", textcolor=color.white, size=size.small, offset=offset_venus_mars_aspect)
+plotshape(is_venus_jupiter_aspect_next, title="VEN-JUP-Next", style=shape.labeldown, location=location.top, color=color.new(color.rgb(255, 215, 0), 80), text="VEN-JUP", textcolor=color.white, size=size.small, offset=offset_venus_jupiter_aspect)
+plotshape(is_mars_jupiter_aspect_next, title="MAR-JUP-Next", style=shape.labeldown, location=location.top, color=color.new(color.rgb(0, 255, 127), 80), text="MAR-JUP", textcolor=color.white, size=size.small, offset=offset_mars_jupiter_aspect)
+plotshape(is_mars_uranus_aspect_next, title="MAR-URA-Next", style=shape.labeldown, location=location.top, color=color.new(color.rgb(255, 140, 0), 80), text="MAR-URA", textcolor=color.white, size=size.small, offset=offset_mars_uranus_aspect)
+plotshape(is_mars_saturn_aspect_next, title="MAR-SAT-Next", style=shape.labeldown, location=location.top, color=color.new(color.red, 80), text="MAR-SAT", textcolor=color.white, size=size.small, offset=offset_mars_saturn_aspect)
+plotshape(is_jupiter_saturn_aspect_next, title="JUP-SAT-Next", style=shape.labeldown, location=location.top, color=color.new(color.purple, 80), text="JUP-SAT", textcolor=color.white, size=size.small, offset=offset_jupiter_saturn_aspect)
+plotshape(is_jupiter_uranus_aspect_next, title="JUP-URA-Next", style=shape.labeldown, location=location.top, color=color.new(color.lime, 80), text="JUP-URA", textcolor=color.white, size=size.small, offset=offset_jupiter_uranus_aspect)
+
+// ==== VISUAL DISPLAYS END ====
