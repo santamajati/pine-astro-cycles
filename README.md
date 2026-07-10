@@ -10,7 +10,7 @@ This indicator plots precise historical data and projects future astronomical ev
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 * **Complex Lunar Cycles:** Displays exact *New Moon* (NM) and *Full Moon* (FM) positions along with their standard windows of influence (±3 days).
 * **Eclipse Detection:** Marks *Lunar Eclipses* (LE) and *Solar Eclipses* (SE) as critical catalysts for high volatility (±5 days).
@@ -25,7 +25,7 @@ This indicator plots precise historical data and projects future astronomical ev
 
 ---
 
-## 📊 Visual Elements & Chart Legend
+## Visual Elements & Chart Legend
 
 The indicator utilizes a rich visual system designed to keep your chart scannable and clean:
 
@@ -41,7 +41,7 @@ The indicator utilizes a rich visual system designed to keep your chart scannabl
 
 ---
 
-## 📦 How to Install on TradingView
+## How to Install on TradingView
 
 1.  Copy the entire code from your `.pine` script file.
 2.  Open **TradingView** and load any chart.
@@ -52,7 +52,7 @@ The indicator utilizes a rich visual system designed to keep your chart scannabl
 
 ---
 
-## 🔄 How to Update or Extend Astro Data
+## How to Update or Extend Astro Data
 
 Since the astronomical data in this script is pre-calculated and hardcoded using high-precision arrays, you will need to manually add new dates to extend the indicator's lifespan (e.g., for 2027 and beyond).
 
@@ -65,9 +65,8 @@ Since the astronomical data in this script is pre-calculated and hardcoded using
    var string[] new_moon_dates = array.from(
         "2020-01-24", ..., "2026-12-09"
    )
-   
 ---
 
-## ⚖️ Disclaimer
+## Disclaimer
 
 *This indicator is developed purely for alternative technical analysis, quantitative research, and time-cycle exploration purposes. Financial astrology does not guarantee 100% accurate price movements. Always apply strict risk management, use stop-losses, and combine these cycle insights with Price Action or other momentum indicators before making any trading decisions.*
