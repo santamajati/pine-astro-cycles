@@ -1,4 +1,4 @@
-# Astro Cycles - Crypto (Pine Script v5)
+# Astro Cycles - Crypto
 
 ![Pine Script Version](https://img.shields.io/badge/Pine%20Script-v5-blue?style=flat-proportional)
 ![Platform](https://img.shields.io/badge/Platform-TradingView-brightgreen)
@@ -8,6 +8,8 @@
 
 This indicator plots precise historical data and projects future astronomical events—such as moon phases, eclipses, planetary retrogrades, major planetary aspects, and ingresses—to help traders identify potential time-based reversal zones.
 
+---
+![Preview](preview.png)
 ---
 
 ## Key Features
